@@ -73,10 +73,27 @@ if (isURL) {
 
     console.log("Article Title:", articleTitle);
 
+    const stopWords = [
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "of",
+    "to",
+    "in",
+    "on",
+    "for",
+    "and",
+    "with"
+];
+
     const searchQuery = articleTitle
-    .replace(/[^a-zA-Z ]/g," ")
+    .toLowerCase()
+    .replace(/[^a-zA-Z ]/g, "")
     .split(" ")
-    .slice(0,5)
+    .filter(word => word && !stopWords.includes(word))
+    .slice(0,10)
     .join(" ");
 
     if(!articleTitle){
