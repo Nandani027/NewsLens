@@ -1,10 +1,17 @@
 .verify-page {
     min-height: calc(100vh - 70px);
-    background: linear-gradient(
-        135deg,
-        #f4fce8,
-        #ffffff
-    );
+    background:
+    radial-gradient(
+    circle at top,
+    rgba(255,255,255,.65),
+    transparent 45%
+),
+linear-gradient(
+    135deg,
+    #f5fde9 0%,
+    #edf8d8 50%,
+    #e2f0c4 100%
+);
     padding-top: 20px;
     padding-bottom: 1px;
 }
