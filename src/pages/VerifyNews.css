@@ -1,0 +1,36 @@
+.verify-page {
+    min-height: calc(100vh - 70px);
+    background: linear-gradient(
+        135deg,
+        #f4fce8,
+        #ffffff
+    );
+    padding-top: 20px;
+    padding-bottom: 1px;
+}
+
+.verify-content {
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto 40px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.verify-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+
+@media (max-width: 768px) {
+    .verify-content {
+        width: 95%;
+    }
+
+    .verify-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
