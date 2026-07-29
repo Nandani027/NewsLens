@@ -1,7 +1,16 @@
 import "./VerificationResult.css";
 
-const VerificationResult = () => {
+const VerificationResult = ({result}) => {
+  if (!result) return null;
+  const verification = result.analysis.verificationResult;
+
+  if (!verification) return null;
+
+  const verdict = verification.verdict;
+  const confidence = verification.confidence;
+  const summary = result.analysis?.verificationSummary;
   return (
+
     <section className="verification-section">
 
       <h2 className="verification-heading">
@@ -11,24 +20,20 @@ const VerificationResult = () => {
       <div className="result-card">
 
         <div className="confidence-circle">
-          <span className="score">91%</span>
+          <span className="score">{confidence}%</span>
           <p>Confidence</p>
         </div>
 
         <div className="result-content">
 
           <span className="status-badge">
-            ✓ LIKELY AUTHENTIC
+            ✓ {verdict.toUpperCase()}
           </span>
 
-          <h3>Strong Source Match</h3>
-
+          <h3>{verdict}</h3>
           <p>
-            This story is corroborated by multiple trusted,
-            independent publishers with no significant
-            discrepancies.
-          </p>
-
+  {summary?.[0]}
+</p>
         </div>
 
       </div>

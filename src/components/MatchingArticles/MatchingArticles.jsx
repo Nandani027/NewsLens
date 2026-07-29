@@ -1,14 +1,22 @@
 import "./MatchingArticles.css";
 
-const articles = [
-  {
-    source: "BBC News",
-    title: "India wins ICC Champions Trophy after thrilling final.",
-    url: "https://www.bbc.com/news",
-    time: "2 hours ago",
-  }]
 
-const MatchingArticles = () => {
+const MatchingArticles = ({result}) => {
+  if (!result) return null;
+
+   const articles = result.matchingArticles;
+
+if (!articles) return null;
+
+if (articles.length === 0) {
+  return (
+    <section className="matching-section">
+      <h2 className="section-title">Matching Articles</h2>
+      <p>No matching articles found.</p>
+    </section>
+  );
+}
+
   return (
     <section className="matching-section">
       <h2 className="section-title">Matching Articles</h2>
@@ -22,17 +30,20 @@ const MatchingArticles = () => {
               </span>
 
               <span className="article-time">
-                {article.time}
-              </span>
+  {new Date(article.publishedAt).toLocaleDateString()}
+</span>
             </div>
 
             <h3>{article.title}</h3>
 
             <p>{article.url}</p>
 
-            <button className="read-btn">
-              Read Article →
-            </button>
+            <button
+  className="read-btn"
+  onClick={() => window.open(article.url, "_blank")}
+>
+  Read Article →
+</button>
           </div>
         ))}
       </div>

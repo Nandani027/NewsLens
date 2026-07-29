@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const axios = require("axios");
 const { GoogleGenAI } = require("@google/genai");
 require("dotenv").config();
@@ -18,6 +19,8 @@ app.use(express.json());
 app.get("/", (req, res) => {
     res.send("NewsLens Backend is Running!");
 });
+
+app.use(cors());
 
 // Verify Route
 app.post("/verify", async (req, res) => {
@@ -202,7 +205,14 @@ Instructions:
 - Whether there are major contradictions.
 - Whether the claims appear exaggerated or unsupported.
 
-4. Give a confidence score from 0 to 100.
+4. Give a confidence score according to these guidelines:
+
+- Likely Authentic: 80–100
+- Misleading: 40–70
+- Likely Fake: 70–100 (confidence that the claim is false)
+- Insufficient Evidence: 0–40
+
+If there is not enough reliable evidence, the confidence score should never exceed 40.
 
 5. Return verificationSummary as an array containing EXACTLY four short sentences.
 Do not include bullet symbols such as •, -, or *.
@@ -357,7 +367,14 @@ Instructions:
 
 4. If the headline appears exaggerated or unsupported by the available articles, explain why.
 
-5. Give a confidence score between 0 and 100.
+5. Give a confidence score according to these guidelines:
+
+- Likely Authentic: 80–100
+- Misleading: 40–70
+- Likely Fake: 70–100 (confidence that the claim is false)
+- Insufficient Evidence: 0–40
+
+If there is not enough reliable evidence, the confidence score should never exceed 40.
 
 6. Return verificationSummary as an array containing EXACTLY four short sentences.
 Do not include bullet symbols such as •, -, or *.
