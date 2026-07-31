@@ -1,4 +1,9 @@
 import "./VerificationResult.css";
+import {
+  CircularProgressbar,
+  buildStyles,
+} from "react-circular-progressbar";
+import "react-circular-progressbar/dist/styles.css";
 
 const VerificationResult = ({result}) => {
   if (!result) return null;
@@ -11,34 +16,53 @@ const VerificationResult = ({result}) => {
   const summary = result.analysis?.verificationSummary;
   return (
 
-    <section className="verification-section">
+   <section className="verification-section">
 
-      <h2 className="verification-heading">
-        Verification Result
-      </h2>
+  <div className="result-card">
 
-      <div className="result-card">
+    <div className="result-header">
+      <h2>Verification Result</h2>
+    </div>
 
+    <div className="result-body">
+
+      <div className="confidence-wrapper">
         <div className="confidence-circle">
-          <span className="score">{confidence}%</span>
-          <p>Confidence</p>
+          <CircularProgressbar
+            value={confidence}
+            text={`${confidence}%`}
+            strokeWidth={7}
+            styles={buildStyles({
+              pathColor: "#C7F14A",
+              trailColor: "#E5E5E5",
+              textColor: "#111",
+              textSize: "20px",
+            })}
+          />
         </div>
 
-        <div className="result-content">
+        <p className="confidence-label">Confidence</p>
+      </div>
 
-          <span className="status-badge">
-            ✓ {verdict.toUpperCase()}
-          </span>
+      <div className="result-content">
 
-          <h3>{verdict}</h3>
-          <p>
-  {summary?.[0]}
-</p>
-        </div>
+        <span className="status-badge">
+          ✓ {verdict.toUpperCase()}
+        </span>
+
+        <h3 className="result-title">{verdict}</h3>
+
+        <p className="result-description">
+          {summary?.[0]}
+        </p>
 
       </div>
 
-    </section>
+    </div>
+
+  </div>
+
+</section>
   );
 };
 

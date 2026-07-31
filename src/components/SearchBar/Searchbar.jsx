@@ -1,34 +1,56 @@
 import "./Searchbar.css";
 import { FiSearch } from "react-icons/fi";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { useLocation } from "react-router-dom";
 
-const SearchBar = ({ initialValue = "", setResult }) =>{
-  const [searchText, setSearchText] = useState(initialValue);
-  const [loading, setLoading] = useState(false);
+const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
+  const location = useLocation();
 
-  const verifyNews = async () => {
-     console.log("Verify button clicked");
-    if (!searchText.trim()) return;
+  const [searchText, setSearchText] = useState(
+    location.state?.news || initialValue
+  );
+
+  // Local loading state (for button)
+  const [loading, setIsLoading] = useState(false);
+
+  const verifyNews = async (text = searchText) => {
+    if (!text.trim()) return;
 
     try {
-        setLoading(true);
+      // Local loading (button)
+      setIsLoading(true);
 
-        const response = await axios.post(
-            "http://localhost:5000/verify",
-            {
-                input: searchText
-            }
-        );
+      // Parent loading (optional)
+      if (setLoading) setLoading(true);
 
-        setResult(response.data);
+      // Remove previous result so loader is shown
+      setResult(null);
 
+      const response = await axios.post(
+        "http://localhost:5000/verify",
+        {
+          input: text,
+        }
+      );
+
+      setResult(response.data);
     } catch (error) {
-        console.error(error);
+      console.error("Verification failed:", error);
     } finally {
-        setLoading(false);
+      setIsLoading(false);
+
+      if (setLoading) setLoading(false);
     }
-};
+  };
+
+  useEffect(() => {
+    if (location.state?.news) {
+      setSearchText(location.state.news);
+      verifyNews(location.state.news);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="verify-search-container">
@@ -44,12 +66,12 @@ const SearchBar = ({ initialValue = "", setResult }) =>{
         />
 
         <button
-    className="verify-btn"
-    onClick={verifyNews}
-    disabled={loading}
->
-    {loading ? "Verifying..." : "Verify"}
-</button>
+          className="verify-btn"
+          onClick={() => verifyNews()}
+          disabled={loading}
+        >
+          {loading ? "Verifying..." : "Verify"}
+        </button>
       </div>
     </div>
   );

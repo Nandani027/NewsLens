@@ -2,7 +2,6 @@ import "./VerificationSummary.css";
 import { FiCheckCircle } from "react-icons/fi";
 
 const VerificationSummary = ({ result }) => {
-
   if (!result) return null;
 
   const summary = result.analysis?.verificationSummary;
@@ -12,17 +11,21 @@ const VerificationSummary = ({ result }) => {
   return (
     <section className="summary-section">
 
-      <h2 className="section-title">
-        Verification Summary
-      </h2>
-
       <div className="summary-card">
-        {summary.map((item, index) => (
-          <div className="summary-item" key={index}>
-            <FiCheckCircle className="summary-icon" />
-            <span>{item}</span>
-          </div>
-        ))}
+
+        <div className="card-header">
+          <h2>Verification Summary</h2>
+        </div>
+
+        <div className="card-body">
+          {summary.map((item, index) => (
+            <div className="summary-item" key={index}>
+              <FiCheckCircle className="summary-icon" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+
       </div>
 
     </section>

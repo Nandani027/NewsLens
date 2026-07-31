@@ -5,22 +5,22 @@ const { GoogleGenAI } = require("@google/genai");
 require("dotenv").config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-const PORT = 5000;
+app.use(cors());
+app.use(express.json());
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// Middleware to share data to react
-app.use(express.json());
+
 
 // Home Route
 app.get("/", (req, res) => {
     res.send("NewsLens Backend is Running!");
 });
 
-app.use(cors());
 
 // Verify Route
 app.post("/verify", async (req, res) => {
@@ -255,7 +255,7 @@ Do not wrap the JSON inside \`\`\`.
 Do not write any additional text.
 `;
    const response = await ai.models.generateContent({
-  model: "gemini-flash-latest",
+  model: "gemini-3.1-flash-lite",
   contents: url_prompt,
    });
 
@@ -418,7 +418,7 @@ Do not wrap the JSON inside \`\`\`.
 Do not write anything except the JSON.
 `;
   const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-3.1-flash-lite",
     contents: headlinePrompt,
 });
 
@@ -452,11 +452,13 @@ try {
     } 
 }catch(error){
 
-        res.status(500).json({
-            success:false,
-            message:"Verification failed",
-            error:error.message
-        });
+        console.error("Backend Server Error:", error?.response?.data || error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Verification failed",
+      error: error.message,
+    });
 
     }
 

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import heroImage from "../../assets/hero.png";
 
+
 function Hero() {
   const navigate = useNavigate();
   const [newsInput, setNewsInput] = useState("");
@@ -46,10 +47,38 @@ function Hero() {
           </button>
         </div>
       </div>
-
       <div className="hero-right">
-        <img src={heroImage} alt="Hero" />
+  <div className="image-stack">
+
+    <div className="card card-back"></div>
+
+    <div className="card card-middle"></div>
+
+    <div className="card card-front">
+      <img src={heroImage} alt="News" />
+    </div>
+
+    <div className="verification-card">
+
+      <div className="verify-icon">
+        ✓
       </div>
+
+      <div className="verify-text">
+        <span>VERIFICATION RESULT</span>
+
+        <h3>VERIFIED</h3>
+
+        <p>
+          This news is covered by multiple trusted sources.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+      
     </section>
   );
 }
