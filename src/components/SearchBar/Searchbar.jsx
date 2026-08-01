@@ -21,7 +21,7 @@ const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
       if (setLoading) setLoading(true);
       if (setResult) setResult(null);
 
-      const response = await axios.post("https://newslens-production-4e6e.up.railway.app/", {
+      const response = await axios.post("https://newslens-production-4e6e.up.railway.app", {
         input: text.trim(),
       });
       console.log("Backend Data Received:", response.data);
