@@ -79,11 +79,11 @@
     justify-content: center;
     gap: 8px;
 
-    box-shadow: 0 8px 20px rgba(184, 255, 61, 0.35);
+    box-shadow: 0 8px 20px rgba(143, 238, 181, 0.35);
 }
 .search-box button:hover {
     background:#22a55a;
-    box-shadow: 0 12px 28px rgba(184, 255, 61, 0.5);
+    box-shadow: 0 12px 28px rgba(145, 235, 153, 0.5);
 }
 .search-box button:active {
     transform: scale(0.97);
@@ -225,7 +225,7 @@
 
     border-radius:50%;
 
-    background:#22a55a;
+    background:#31c16f;
 
     color:#111;
 
@@ -250,7 +250,7 @@
 
     margin:6px 0;
 
-    color:#22a55a;
+    color:#33c271;
 
     font-size:20px;
 }
