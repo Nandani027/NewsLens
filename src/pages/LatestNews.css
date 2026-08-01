@@ -1,0 +1,18 @@
+
+.latest-news-page {
+   min-height: calc(100vh - 70px);
+    background: #e8e8e8;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 50px;
+    padding-right: 50px;
+
+}
+
+
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 32px;
+}
