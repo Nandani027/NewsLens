@@ -33,7 +33,7 @@ const VerificationResult = ({result}) => {
             text={`${confidence}%`}
             strokeWidth={7}
             styles={buildStyles({
-              pathColor: "#C7F14A",
+              pathColor: "#22a55a",
               trailColor: "#E5E5E5",
               textColor: "#111",
               textSize: "20px",

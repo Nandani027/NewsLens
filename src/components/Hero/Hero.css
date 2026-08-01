@@ -15,7 +15,7 @@
 
 .hero-left h1{
     color:white;
-    font-size:80px;
+    font-size:70px;
     line-height:1.1;
     font-weight:800;
     
@@ -24,8 +24,8 @@
 
 .hero-left h2{
     margin-top:20px;
-    color:#B8FF3D;
-    font-size:60px;
+    color:#22a55a;
+    font-size:50px;
     line-height:1.1;
 }
 
@@ -33,20 +33,20 @@
     width:78%;
     margin:35px 0;
     font-family: 'Manrope', sans-serif;
-    color:#c8c8c8;
-    font-size:18px;
+    color:#f8f4f4;
+    font-size:17px;
     line-height:1.8;
 }
 
 .search-box{
     display:flex;
-    margin-top:25px;
+    margin-top:22px;
 }
 
 .search-box input{
-    width:420px;
+    width:450px;
     padding:18px;
-    font-size:1.45rem;
+    font-size:1.25rem;
     font-weight:400;
     border:none;
     outline:none;
@@ -57,12 +57,12 @@
 
 
 .search-box button {
-    padding: 0 32px;
+    padding: 0 25px;
     border: none;
     outline: none;
     cursor: pointer;
 
-    background: #B8FF3D;
+    background:#22a55a;
     color: #111;
 
     font-size: 21px;
@@ -82,7 +82,7 @@
     box-shadow: 0 8px 20px rgba(184, 255, 61, 0.35);
 }
 .search-box button:hover {
-    background: #CCFF66;
+    background:#22a55a;
     box-shadow: 0 12px 28px rgba(184, 255, 61, 0.5);
 }
 .search-box button:active {
@@ -118,7 +118,7 @@
 
 .card-back{
 
-    background: #c5ff31;
+    background: #22a55a;
 
     opacity:.7;
 
@@ -206,7 +206,7 @@
 
     border-radius:50%;
 
-    background:#B8FF3D;
+    background:#22a55a;
 
     color:#111;
 
@@ -225,7 +225,7 @@
 
     border-radius:50%;
 
-    background:#B8FF3D;
+    background:#22a55a;
 
     color:#111;
 
@@ -250,9 +250,9 @@
 
     margin:6px 0;
 
-    color:#B8FF3D;
+    color:#22a55a;
 
-    font-size:26px;
+    font-size:20px;
 }
 
 .verify-text p{

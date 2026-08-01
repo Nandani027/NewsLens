@@ -7,35 +7,36 @@ const TrustedSources = ({ result }) => {
 
   if (!sources) return null;
 
+  if (sources.length === 0) {
+    return (
+      <section className="sources-section">
+        <div className="sources-card">
+          <div className="card-header">
+            <h2>Trusted Sources</h2>
+          </div>
+          <div className="sources-container">
+            <p>No trusted sources were found.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="sources-section">
-
       <div className="sources-card">
-
         <div className="card-header">
           <h2>Trusted Sources</h2>
         </div>
 
-        <div className="card-body">
-
-          {sources.length === 0 ? (
-            <p className="no-sources">
-              No trusted sources were found.
-            </p>
-          ) : (
-            <div className="sources-container">
-              {sources.map((source, index) => (
-                <div className="source-pill" key={index}>
-                  {source.name}
-                </div>
-              ))}
+        <div className="sources-container">
+          {sources.map((source, index) => (
+            <div className="source-pill" key={source.id ?? index}>
+              {source.name}
             </div>
-          )}
-
+          ))}
         </div>
-
       </div>
-
     </section>
   );
 };
