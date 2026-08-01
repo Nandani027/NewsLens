@@ -10,6 +10,53 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+app.get("/latest-news", async (req, res) => {
+  try {
+    const category = req.query.category || "technology";
+
+    const response = await axios.get(
+      "https://newsapi.org/v2/everything",
+      {
+        params: {
+
+            q: category,
+            language: "en",
+            sortBy: "publishedAt",
+            pageSize: 8,
+            apiKey: process.env.NEWS_API_KEY,
+        }
+      }
+    );
+    {
+        //news api return
+//   "source": {
+//     "id": "bbc-news",
+//     "name": "BBC News"
+//   },
+//   "author": "...",
+//   "title": "Apple unveils new AI-powered iPhone features",
+//   "description": "...",
+//   "url": "https://www.bbc.com/news/articles/xxxxxxxx",
+//   "urlToImage": "https://...",
+//   "publishedAt": "2026-08-01T08:20:00Z"
+// }
+    console.log(response.data);
+
+    res.json({
+      success: true,
+      articles: response.data.articles,
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch latest news",
+    });
+  }
+});
+
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });

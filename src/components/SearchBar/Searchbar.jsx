@@ -11,20 +11,18 @@ const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
     location.state?.news || initialValue
   );
 
-  // Local loading state (for button)
+  
   const [loading, setIsLoading] = useState(false);
 
   const verifyNews = async (text = searchText) => {
     if (!text.trim()) return;
 
     try {
-      // Local loading (button)
+     
       setIsLoading(true);
-
-      // Parent loading (optional)
       if (setLoading) setLoading(true);
 
-      // Remove previous result so loader is shown
+  
       setResult(null);
 
       const response = await axios.post(
