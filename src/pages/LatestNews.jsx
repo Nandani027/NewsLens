@@ -20,7 +20,7 @@ const LatestNews = () => {
       setLoading(true);
 
       const response = await axios.get(
-        "http://localhost:5000/latest-news",
+        "https://newslens-production-4e6e.up.railway.app/latest-news",
         {
           params: {
             category,
