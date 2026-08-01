@@ -1,4 +1,4 @@
-import "./Searchbar.css";
+import "./SearchBar.css";
 import { FiSearch } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import axios from "axios";
