@@ -12,9 +12,13 @@ const NewsCard = ({
   return (
     <div className="news-card">
       <img
-        src={image || "/placeholder-news.jpg"}
+        src={image || "src/assets/latestnews.jpg"}
         alt={title}
         className="news-card-image"
+         onError={(e) => {
+    e.target.onerror = null; 
+    e.target.src = "src/assets/latestnews.jpg";
+  }}
       />
 
       <div className="news-card-content">

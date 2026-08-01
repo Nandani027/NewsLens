@@ -11,33 +11,26 @@ const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
     location.state?.news || initialValue
   );
 
-  
   const [loading, setIsLoading] = useState(false);
 
   const verifyNews = async (text = searchText) => {
-    if (!text.trim()) return;
+    if (!text || !text.trim()) return;
 
     try {
-     
       setIsLoading(true);
       if (setLoading) setLoading(true);
+      if (setResult) setResult(null);
 
-  
-      setResult(null);
+      const response = await axios.post("http://localhost:5000/verify", {
+        input: text.trim(),
+      });
+      console.log("Backend Data Received:", response.data);
 
-      const response = await axios.post(
-        "http://localhost:5000/verify",
-        {
-          input: text,
-        }
-      );
-
-      setResult(response.data);
+      if (setResult) setResult(response.data);
     } catch (error) {
-      console.error("Verification failed:", error);
+      console.error("Verification failed:", error?.response?.data || error.message);
     } finally {
       setIsLoading(false);
-
       if (setLoading) setLoading(false);
     }
   };
@@ -47,8 +40,14 @@ const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
       setSearchText(location.state.news);
       verifyNews(location.state.news);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      verifyNews();
+    }
+  };
 
   return (
     <div className="verify-search-container">
@@ -61,6 +60,7 @@ const SearchBar = ({ initialValue = "", setResult, setLoading }) => {
           className="search-input"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
+          onKeyDown={handleKeyDown}
         />
 
         <button

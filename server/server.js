@@ -10,46 +10,87 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+
+function extractArticleTitle(articleText) {
+  if (!articleText || typeof articleText !== "string") return "";
+
+  const lines = articleText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return "";
+
+  const titleLine = lines.find((line) =>
+    line.toLowerCase().startsWith("title:")
+  );
+  if (titleLine) {
+    return titleLine.replace(/^title:/i, "").trim();
+  }
+
+  const headingLine = lines.find((line) => line.startsWith("#"));
+  if (headingLine) {
+    return headingLine.replace(/^#+\s*/, "").trim();
+  }
+
+  return lines[0];
+}
+
+
+function generateOptimizedQuery(text) {
+  if (!text) return "";
+
+  const stopWords = new Set([
+    "a", "about", "above", "after", "again", "all", "an", "and", "any", "are",
+    "as", "at", "be", "because", "been", "before", "being", "below", "between",
+    "both", "but", "by", "could", "did", "do", "does", "doing", "down", "during",
+    "each", "few", "for", "from", "further", "had", "has", "have", "having",
+    "he", "her", "here", "him", "his", "how", "i", "if", "in", "into", "is",
+    "it", "its", "me", "more", "most", "my", "no", "nor", "not", "of", "off",
+    "on", "once", "only", "or", "other", "our", "out", "over", "own", "same",
+    "she", "should", "so", "some", "such", "than", "that", "the", "their",
+    "them", "then", "there", "these", "they", "this", "those", "through",
+    "to", "too", "under", "until", "up", "very", "was", "we", "were", "what",
+    "when", "where", "which", "while", "who", "whom", "why", "with", "would",
+    "you", "your", "signals", "beginning", "end"
+  ]);
+
+  const words = text
+    .replace(/[:’'”"-]/g, " ")
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !stopWords.has(word.toLowerCase()));
+
+  const keyWords = Array.from(new Set(words));
+  return keyWords.slice(0, 5).join(" ");
+}
+
+
+// Latest News Route
 app.get("/latest-news", async (req, res) => {
   try {
     const category = req.query.category || "technology";
 
-    const response = await axios.get(
-      "https://newsapi.org/v2/everything",
-      {
-        params: {
-
-            q: category,
-            language: "en",
-            sortBy: "publishedAt",
-            pageSize: 8,
-            apiKey: process.env.NEWS_API_KEY,
-        }
-      }
-    );
-    {
-        //news api return
-//   "source": {
-//     "id": "bbc-news",
-//     "name": "BBC News"
-//   },
-//   "author": "...",
-//   "title": "Apple unveils new AI-powered iPhone features",
-//   "description": "...",
-//   "url": "https://www.bbc.com/news/articles/xxxxxxxx",
-//   "urlToImage": "https://...",
-//   "publishedAt": "2026-08-01T08:20:00Z"
-// }
-    console.log(response.data);
+    const response = await axios.get("https://newsapi.org/v2/everything", {
+      params: {
+        q: category,
+        language: "en",
+        sortBy: "publishedAt",
+        pageSize: 8,
+        apiKey: process.env.NEWS_API_KEY,
+      },
+    });
 
     res.json({
       success: true,
       articles: response.data.articles,
     });
-
   } catch (error) {
     console.error(error);
-
     res.status(500).json({
       success: false,
       message: "Unable to fetch latest news",
@@ -57,461 +98,324 @@ app.get("/latest-news", async (req, res) => {
   }
 });
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-
-
 // Home Route
 app.get("/", (req, res) => {
-    res.send("NewsLens Backend is Running!");
+  res.send("NewsLens Backend is Running!");
 });
-
 
 // Verify Route
 app.post("/verify", async (req, res) => {
+  console.log("VERIFY ROUTE HIT");
 
-    console.log("VERIFY ROUTE HIT");
+  const { input } = req.body;
+  console.log("Received:", input);
 
+  if (!input) {
+    return res.status(400).json({
+      success: false,
+      message: "Please enter a news headline or article URL.",
+    });
+  }
 
-    const { input } = req.body;
+  const isURL = /^https?:\/\/.+/i.test(input);
 
-    console.log("Received:", input);
-
-    if (!input) {
-        return res.status(400).json({
-            success:false,
-            message:"Please enter a news headline or article URL."
-        });
-    }
-
-
-    const isURL = /^https?:\/\/.+/i.test(input);
-
-
-    try {
-
-        // URL INPUT
-if (isURL) {
-
-    // 1. Extract article using Jina
-    const jinaUrl = `https://r.jina.ai/${input}`;
-
-    const jinaResponse = await axios.get(jinaUrl);
-
-    const article = jinaResponse.data;
-
-
-    // Extract title
-    const lines = article.split("\n");
-
+  try {
     let articleTitle = "";
+    let articleContent = "";
+    let matchingArticles = [];
+    let prompt = "";
+    let responseType = "headline";
 
-    const titleLine = lines.find(line =>
-        line.toLowerCase().startsWith("title:")
-    );
-
-    if(titleLine){
-        articleTitle = titleLine.replace(/title:/i,"").trim();
-    }
-    else{
-        const heading = lines.find(line =>
-            line.startsWith("#")
-        );
-
-        articleTitle = heading
-        ? heading.replace("#","").trim()
-        : "";
-    }
-
-
-    console.log("Article Title:", articleTitle);
-
-    const stopWords = [
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "of",
-    "to",
-    "in",
-    "on",
-    "for",
-    "and",
-    "with"
-];
-
-    const searchQuery = articleTitle
-    .toLowerCase()
-    .replace(/[^a-zA-Z ]/g, "")
-    .split(" ")
-    .filter(word => word && !stopWords.includes(word))
-    .slice(0,10)
-    .join(" ");
-
-    if(!articleTitle){
-    return res.json({
-        success:true,
-        type:"url",
-        title:"",
-        content:article,
-        matchingArticles:[]
-    });
-}
-
-
-
-    // Search similar articles using NewsAPI
-    const matchResponse = await axios.get(
-        "https://newsapi.org/v2/everything",
-        {   
-            
-            params:{
-                q:searchQuery,
-                language:"en",
-                pageSize:5,
-                sortBy:"relevancy",
-                apiKey:process.env.NEWS_API_KEY
-            }
-        }
-    );
-
-    console.log("NewsAPI results:", matchResponse.data.totalResults);
-
-
-    const matchingArticles = matchResponse.data.articles.map(article=>({
-        title:article.title,
-        source:article.source.name,
-        url:article.url,
-        publishedAt:article.publishedAt
-    }));
-
-    if (matchingArticles.length === 0) {
-    return res.json({
-        success: true,
-        type: "url",
-        originalTitle: articleTitle,
-        matchingArticles: [],
-        analysis: {
-            verificationResult: {
-                verdict: "Insufficient Evidence",
-                confidence: 0
-            },
-            verificationSummary: [
-                "No matching trusted news articles were found.",
-                "The article could not be independently verified.",
-                "More evidence is required before determining credibility.",
-                "Try verifying again later or use another source."
-            ],
-            supportingTrustedSources: []
-        }
-    });
-}
-  
-    //gemini prompt
-
-    const url_prompt = `
-    You are an AI fact-checking assistant for NewsLens.
-
-    Your task is to verify whether a news article is supported by reliable reporting and assess the credibility of the news.
-
-    ORIGINAL ARTICLE
-
-   Title:${articleTitle}
-
-   Content:${article.substring(0, 4000)}
-
---------------------------------------------------
-
-MATCHING ARTICLES
-
-${matchingArticles.map((article, index) => `
-Article ${index + 1}
-Title: ${article.title}
-Source: ${article.source}
-Published: ${article.publishedAt}
-`).join("\n")}
-
---------------------------------------------------
-
-Instructions:
-
-1. Compare the original article with the matching articles.
-
-2. Determine whether the original article is:
-- Likely Authentic
-- Misleading
-- Likely Fake
-- Insufficient Evidence
-
-3. Consider:
-- Whether multiple trusted sources report the same event.
-- Whether the headline matches the reported facts.
-- Whether there are major contradictions.
-- Whether the claims appear exaggerated or unsupported.
-
-4. Give a confidence score according to these guidelines:
-
-- Likely Authentic: 80–100
-- Misleading: 40–70
-- Likely Fake: 70–100 (confidence that the claim is false)
-- Insufficient Evidence: 0–40
-
-If there is not enough reliable evidence, the confidence score should never exceed 40.
-
-5. Return verificationSummary as an array containing EXACTLY four short sentences.
-Do not include bullet symbols such as •, -, or *.
-
-List ONLY supporting sources from the MATCHING ARTICLES provided above.
-
-Treat the ORIGINAL ARTICLE as the article being verified.
-Treat the MATCHING ARTICLES as supporting evidence.
-Base your verdict on how well the supporting evidence confirms or contradicts the original article.
-
-Do not invent or generate any source that is not present in the supplied articles.
-
-Return ONLY valid JSON.
-
-{
-  "verificationResult": {
-    "verdict": "Likely Authentic",
-    "confidence": 91
-  },
-  "verificationSummary": [
-    "Sentence 1",
-    "Sentence 2",
-    "Sentence 3",
-    "Sentence 4"
-  ],
-  "supportingTrustedSources": [
-    {
-      "name": "Reuters",
-
-    },
-    {
-      "name": "BBC",
+    if (isURL) {
+      responseType = "url";
       
-    }
-  ]
-}
+      //  Extract article using Jina
+      const jinaUrl = `https://r.jina.ai/${input}`;
+      const jinaResponse = await axios.get(jinaUrl);
+      articleContent = jinaResponse.data;
 
-Do not include markdown.
-Do not wrap the JSON inside \`\`\`.
-Do not write any additional text.
-`;
-   const response = await ai.models.generateContent({
-  model: "gemini-3.1-flash-lite",
-  contents: url_prompt,
-   });
+      articleTitle = extractArticleTitle(articleContent);
+      console.log("Article Title:", articleTitle);
 
+      if (!articleTitle) {
+        return res.json({
+          success: true,
+          type: "url",
+          title: "",
+          content: articleContent,
+          matchingArticles: [],
+        });
+      }
 
-const aiText = response.text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+      // generate optimized search query
+      const searchQuery = generateOptimizedQuery(articleTitle);
+      console.log("Search Query (URL):", searchQuery);
 
-let analysis;
+      // search similar articles using NewsAPI
+      const matchResponse = await axios.get("https://newsapi.org/v2/everything", {
+        params: {
+          q: searchQuery,
+          language: "en",
+          pageSize: 5,
+          sortBy: "relevancy",
+          apiKey: process.env.NEWS_API_KEY,
+        },
+      });
 
-try {
-    analysis = JSON.parse(aiText);
-} catch (err) {
-    console.error("Gemini returned invalid JSON:", aiText);
+      matchingArticles = matchResponse.data.articles.map((art) => ({
+        title: art.title,
+        source: art.source.name,
+        url: art.url,
+        publishedAt: art.publishedAt,
+      }));
 
-    return res.status(500).json({
-        success: false,
-        message: "Failed to parse AI response."
-    });
-}
-
-    // Sending to frontend
-   return res.json({
-  success: true,
-  type: "url",
-  originalTitle: articleTitle,
-  content: article,
-  matchingArticles,
-  analysis,
-});
-
-}
-else{
-        // HEADLINE INPUT
-        const newsResponse = await axios.get(
-            "https://newsapi.org/v2/everything",
-            {
-                params:{
-                    q:input,
-                    language:"en",
-                    pageSize:5,
-                    sortBy:"relevancy",
-                    apiKey:process.env.NEWS_API_KEY
-                }
-            }
-        );
-
-        const matchingArticles = newsResponse.data.articles.map(article => ({
-    title: article.title,
-    source: article.source.name,
-    url: article.url,
-    publishedAt: article.publishedAt
-}));
-        if (matchingArticles.length === 0) {
-    return res.json({
-        success: true,
-        type: "headline",
-        matchingArticles: [],
-        analysis: {
-            verificationResult: {
-                verdict: "Insufficient Evidence",
-                confidence: 0
-            },
-            verificationSummary: [
-                "No matching trusted news articles were found.",
-                "The article could not be independently verified.",
-                "More evidence is required before determining credibility.",
-                "Try verifying again later or use another source."
-            ],
-            supportingTrustedSources: []
-        }
-    });
-}
-
-        const headlinePrompt = `
+      prompt = `
 You are an AI fact-checking assistant for NewsLens.
 
-Your task is to determine whether the following news headline is supported by reliable reporting.
+Your task is to verify whether an original news article is supported by reliable reporting and assess its overall credibility based on matching sources and internal content analysis.
 
-HEADLINE
-
-${input}
+ORIGINAL ARTICLE
+Title: ${articleTitle}
+Content: ${articleContent.substring(0, 4000)}
 
 --------------------------------------------------
 
 MATCHING ARTICLES
-
-${matchingArticles.map((article, index) => `
+${
+  matchingArticles.length > 0
+    ? matchingArticles
+        .map(
+          (art, index) => `
 Article ${index + 1}
-Title: ${article.title}
-Source: ${article.source}
-Published: ${article.publishedAt}
-`).join("\n")}
+Title: ${art.title}
+Source: ${art.source}
+Published: ${art.publishedAt}
+`
+        )
+        .join("\n")
+    : "No matching articles provided."
+}
 
 --------------------------------------------------
 
-Instructions:
+INSTRUCTIONS & VERDICT RULES:
 
-1. Compare the given headline with the matching news articles.
+1. Verdict Categories & Confidence Guidelines:
+   - "Likely Authentic": MUST assign confidence between 80 and 100 (Multiple trusted matching articles directly confirm the core event and claim).
+   - "Misleading": MUST assign confidence between 40 and 70 ONLY(Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
+   - "Likely Fake": MUST assign confidence between 70 and 100. (High confidence that the claim in the headline is false or explicitly refuted by reliable reporting).
+   - "Insufficient Evidence": MUST assign confidence between 10 and 40. (Few or no matching articles are provided to verify the claim).
+   CRITICAL RULE: Your numerical confidence score MUST strictly lie within the exact range assigned to the chosen verdict category. Do NOT assign a score outside the category's range!
 
-2. Determine whether the headline is:
-- Likely Authentic
-- Misleading
-- Likely Fake
-- Insufficient Evidence
+2. SPECIAL RULE FOR NO MATCHING ARTICLES:
+   If no matching articles are provided, the verdict MUST remain "Insufficient Evidence", but DO NOT give a score of 0.
+   Evaluate the ORIGINAL ARTICLE on its internal merits and assign a score between 10 and 35 based on:
+   - Professional & objective tone vs. emotional, aggressive, or clickbait language.
+   - Specificity (presence of named officials, organizations, dates) vs. vague claims ("sources say", "experts claim").
+   - Internal logical consistency and absence of obvious conspiracy tropes or contradictions.
 
-3. Check whether the trusted sources describe the same event.
+3. Verification Summary Rules:
+   - "verificationSummary" MUST be an array containing EXACTLY four short sentences.
+   - Do NOT include bullet points, dashes, or special list characters (e.g., •, -, *).
+   - If no matching articles exist, state that external cross-verification was unavailable, then summarize the article's internal credibility signals (tone, specificity, structure).
 
-4. If the headline appears exaggerated or unsupported by the available articles, explain why.
+4. Supporting Sources Rules:
+   - "supportingTrustedSources" MUST ONLY list unique sources present in the MATCHING ARTICLES section above.
+   - If no matching articles exist, return an empty array [].
 
-5. Give a confidence score according to these guidelines:
+5. Output Constraints:
+   - Output MUST be strictly raw, valid JSON.
+   - Do NOT include markdown code blocks (e.g., \`\`\`json or \`\`\`).
+   - Do NOT output any introductory text, trailing text, or explanatory prose outside the JSON object.
 
-- Likely Authentic: 80–100
-- Misleading: 40–70
-- Likely Fake: 70–100 (confidence that the claim is false)
-- Insufficient Evidence: 0–40
-
-If there is not enough reliable evidence, the confidence score should never exceed 40.
-
-6. Return verificationSummary as an array containing EXACTLY four short sentences.
-Do not include bullet symbols such as •, -, or *.
-
-7.List ONLY supporting sources from the MATCHING ARTICLES provided above.
-
-Treat the HEADLINE as the claim being verified.
-Use only the MATCHING ARTICLES as evidence.
-Do not assume facts beyond the provided headline and matching articles.
-
-Do not invent or generate any source that is not present in the supplied articles.
-
-
-Return ONLY valid JSON in the following format:
-
+REQUIRED JSON FORMAT:
 {
   "verificationResult": {
-    "verdict": "Likely Authentic",
-    "confidence": 91
+    "verdict": "Likely Authentic | Misleading | Likely Fake | Insufficient Evidence",
+    "confidence": <integer matching the chosen verdict range above>
   },
   "verificationSummary": [
-    "Sentence 1",
-    "Sentence 2",
-    "Sentence 3",
-    "Sentence 4"
+    "First sentence stating external verification was unavailable.",
+    "Second sentence evaluating the original article's tone and writing quality.",
+    "Third sentence noting the presence or absence of specific internal citations.",
+    "Fourth sentence summarizing the overall internal plausibility assessment."
   ],
-  "supportingTrustedSources": [
-    {
-      "name": "Reuters",
- 
-    },
-    {
-      "name": "BBC",
+  "supportingTrustedSources": []
+}
+`;
+    } else {
     
-    }
-  ]
+      responseType = "headline";
+
+      // optimized query generator headline search
+      const searchQuery = generateOptimizedQuery(input);
+      console.log("Search Query (Headline):", searchQuery);
+
+      const newsResponse = await axios.get("https://newsapi.org/v2/everything", {
+        params: {
+          q: searchQuery || input,
+          language: "en",
+          pageSize: 5,
+          sortBy: "relevancy",
+          apiKey: process.env.NEWS_API_KEY,
+        },
+      });
+
+      matchingArticles = newsResponse.data.articles.map((art) => ({
+        title: art.title,
+        source: art.source.name,
+        url: art.url,
+        publishedAt: art.publishedAt,
+      }));
+
+
+      prompt = `
+You are an AI fact-checking assistant for NewsLens.
+
+Your task is to verify whether the provided news headline is supported by reliable reporting and assess its credibility based on the provided matching articles.
+
+HEADLINE TO VERIFY
+"${input}"
+
+--------------------------------------------------
+
+MATCHING ARTICLES
+${
+  matchingArticles.length > 0
+    ? matchingArticles
+        .map(
+          (art, index) => `
+Article ${index + 1}
+Title: ${art.title}
+Source: ${art.source}
+Published: ${art.publishedAt}
+`
+        )
+        .join("\n")
+    : "No matching articles provided."
 }
 
-Do not include markdown.
-Do not wrap the JSON inside \`\`\`.
-Do not write anything except the JSON.
+--------------------------------------------------
+
+INSTRUCTIONS & VERDICT RULES:
+
+1. Verdict Categories & Confidence Guidelines:
+   - "Likely Authentic": MUST assign confidence between 80 and 100 (Multiple trusted matching articles directly confirm the core event and claim).
+   - "Misleading": MUST assign confidence between 40 and 70 ONLY(Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
+   - "Likely Fake": MUST assign confidence between 70 and 100. (High confidence that the claim in the headline is false or explicitly refuted by reliable reporting).
+   - "Insufficient Evidence": MUST assign confidence between 10 and 40. (Few or no matching articles are provided to verify the claim).
+   CRITICAL RULE: Your numerical confidence score MUST strictly lie within the exact range assigned to the chosen verdict category. Do NOT assign a score outside the category's range!
+
+2. SPECIAL RULE FOR NO MATCHING ARTICLES:
+   If no matching articles are provided, the verdict MUST be "Insufficient Evidence".
+   Do NOT assign a score of 0. Evaluate the HEADLINE on its structure and assign a score between 10 and 35 based on:
+   - Sensationalism & emotional manipulation vs. objective journalistic phrasing.
+   - Specificity (names of people, places, organizations) vs. vague assertions ("You won't believe what happened").
+
+3. Verification Summary Rules:
+   - "verificationSummary" MUST be an array containing EXACTLY four short sentences.
+   - Do NOT include bullet points, dashes, or special list symbols (e.g., •, -, *).
+   - If matching articles are missing, state that external confirmation is unavailable, then briefly summarize the headline's internal phrasing signals.
+
+4. Supporting Sources Rules:
+   - "supportingTrustedSources" MUST ONLY list unique source names present in the MATCHING ARTICLES section above.
+   - Do NOT invent or hallucinate sources. Return an empty array [] if no matching articles exist.
+
+5. Output Constraints:
+   - Output MUST be strictly raw, valid JSON.
+   - Do NOT wrap the output in markdown blocks (e.g., \`\`\`json or \`\`\`).
+   - Do NOT write any introductory or extra text outside the JSON object.
+
+REQUIRED JSON FORMAT:
+{
+  "verificationResult": {
+    "verdict": "Likely Authentic | Misleading | Likely Fake | Insufficient Evidence",
+    "confidence": <integer matching the chosen verdict range above>
+  },
+  "verificationSummary": [
+    "First sentence stating whether the headline is supported by external reporting.",
+    "Second sentence describing the central claim extracted from the headline.",
+    "Third sentence detailing evidence from matching sources or structural analysis.",
+    "Fourth sentence providing the final conclusion on credibility."
+  ],
+  "supportingTrustedSources": []
+}
 `;
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite",
-    contents: headlinePrompt,
+    }
+    const response = await ai.models.generateContent({
+  model: "gemini-3.5-flash-lite",
+  contents: prompt,
+  config: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: "OBJECT",
+      properties: {
+        verificationResult: {
+          type: "OBJECT",
+          properties: {
+            verdict: {
+              type: "STRING",
+              enum: ["Likely Authentic", "Misleading", "Likely Fake", "Insufficient Evidence"]
+            },
+            confidence: { type: "INTEGER" }
+          },
+          required: ["verdict", "confidence"]
+        },
+        verificationSummary: {
+          type: "ARRAY",
+          items: { type: "STRING" }
+        },
+        supportingTrustedSources: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING" }
+            }
+          }
+        }
+      },
+      required: ["verificationResult", "verificationSummary", "supportingTrustedSources"]
+    }
+  }
 });
 
-const aiText = response.text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+    const aiText = response.text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
     let analysis;
-
-try {
-    analysis = JSON.parse(aiText);
-} catch (err) {
-    console.error("Gemini returned invalid JSON:", aiText);
-
-    return res.status(500).json({
+    try {
+      analysis = JSON.parse(aiText);
+    } catch (err) {
+      console.error("Gemini returned invalid JSON:", aiText);
+      return res.status(500).json({
         success: false,
-        message: "Failed to parse AI response."
+        message: "Failed to parse AI response.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      type: responseType,
+      headline: responseType === "headline" ? input : undefined,
+      originalTitle: responseType === "url" ? articleTitle : undefined,
+      content: responseType === "url" ? articleContent : undefined,
+      matchingArticles,
+      analysis,
     });
-}
-
-
-   return res.json({
-    success: true,
-    type: "headline",
-    headline: input,
-    matchingArticles,
-    analysis
-});
-
-    } 
-}catch(error){
-
-        console.error("Backend Server Error:", error?.response?.data || error.message);
-
+  } catch (error) {
+    console.error("Backend Server Error:", error?.response?.data || error.message);
     return res.status(500).json({
       success: false,
       message: "Verification failed",
       error: error.message,
     });
-
-    }
-
+  }
 });
 
 // Start Server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

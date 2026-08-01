@@ -25,10 +25,7 @@ function Navbar() {
         </li>
       </ul>
 
-      <NavLink to="/login" className="login-btn">
-        <FaRegUser />
-        Login
-      </NavLink>
+   
 
     </nav>
   );
