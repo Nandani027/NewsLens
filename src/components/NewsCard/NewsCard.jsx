@@ -1,5 +1,5 @@
 import "./NewsCard.css";
-import placeholder from "../../assets/latestnews.jpg";
+
 
 const NewsCard = ({
   image,
@@ -13,14 +13,12 @@ const NewsCard = ({
   return (
     <div className="news-card">
       <img
-        src={image || placeholder}
-        alt={title}
-        className="news-card-image"
-         onError={(e) => {
-    e.target.onerror = null; 
-    e.target.src = placeholder;
+  src={image || "/latestnews.jpg"}
+  onError={(e) => {
+    e.target.onerror = null;
+    e.target.src = "/latestnews.jpg";
   }}
-      />
+/>
 
       <div className="news-card-content">
         <h3 className="news-card-title">
