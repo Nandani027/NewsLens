@@ -1,5 +1,5 @@
 import "./NewsCard.css";
-import placeholder from "src/assets/latestnews.jpg";
+import placeholder from "../../assets/latestnews.jpg";
 
 const NewsCard = ({
   image,
