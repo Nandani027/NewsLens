@@ -80,14 +80,14 @@ app.get("/latest-news", async (req, res) => {
         q: category,
         language: "en",
         sortBy: "publishedAt",
-        pageSize: 20,
+        pageSize: 35,
         apiKey: process.env.NEWS_API_KEY,
       },
     });
 
     res.json({
       success: true,
-      articles: response.data.articles.slice(0,12),
+      articles: response.data.articles.slice(0,32),
     });
   } catch (error) {
     console.error(error);
