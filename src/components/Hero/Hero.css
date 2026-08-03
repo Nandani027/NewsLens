@@ -6,7 +6,8 @@
     justify-content:space-between;
     align-items:center;
     padding:10px 8%;
-    overflow:hidden
+    overflow:hidden;
+    gap:40px;
 }
 
 .hero-left{
@@ -18,8 +19,6 @@
     font-size:70px;
     line-height:1.1;
     font-weight:800;
-    
-    
 }
 
 .hero-left h2{
@@ -283,4 +282,96 @@
     transform:
         rotate(12deg)
         translate(75px,-20px);
+}
+
+@media (max-width:1200px){
+    .hero-left h1{ font-size:56px; }
+    .hero-left h2{ font-size:40px; }
+    .image-stack{ width:340px; height:460px; }
+    .card{ width:305px; height:400px; }
+}
+
+@media (max-width:1024px){ /*tablet*/
+    .hero{
+        flex-direction:column;
+        justify-content:center;
+        text-align:center;
+        padding:60px 8%;
+        min-height:auto;
+    }
+
+    .hero-left{
+        flex:none;
+        width:100%;
+    }
+
+    .hero-left p{
+        width:100%;
+        margin:25px auto;
+    }
+
+    .search-box{
+        justify-content:center;
+    }
+
+    .image-stack{
+        margin-top:60px;
+        width:320px;
+        height:420px;
+    }
+
+    .card{
+        width:285px;
+        height:365px;
+    }
+
+    .verification-card{
+        left:50%;
+        transform:translateX(-50%);
+        bottom:-20px;
+    }
+}
+
+/* Mobile */
+
+@media (max-width:600px){
+    .hero-left h1{ font-size:38px; }
+    .hero-left h2{ font-size:28px; }
+    .hero-left p{ font-size:15px; }
+
+    .search-box{
+        flex-direction:column;
+        width:100%;
+    }
+
+    .search-box input{
+        width:100%;
+        border-radius:10px 10px 0 0;
+        text-align:center;
+    }
+
+    .search-box button{
+        border-radius:0 0 10px 10px;
+        padding:14px;
+    }
+
+    .image-stack{
+        width:260px;
+        height:340px;
+        margin-top:80px;
+    }
+
+    .card{
+        width:230px;
+        height:295px;
+    }
+
+    .verification-card{
+        width:220px;
+        padding:14px;
+        bottom:-40px;
+    }
+
+    .verify-text h3{ font-size:17px; }
+    .verify-text p{ font-size:12.5px; }
 }

@@ -22,7 +22,7 @@ const VerificationLoader = () => {
         </div>
 
         <button className="button-box">
-          <span className="green">Verify Now</span>
+          <span className="green">VERIFY NEWS</span>
         </button>
       </div>
     </div>
