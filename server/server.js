@@ -14,6 +14,44 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+/**
+ * Helper function to handle transient Gemini 503/429 errors with exponential backoff retry logic.
+ */
+async function callGeminiWithRetry(apiCall, retries = 3, delay = 1000) {
+  try {
+    return await apiCall();
+  } catch (error) {
+    let parsedError = error;
+
+    if (typeof error?.message === "string" && error.message.includes("{")) {
+      try {
+        parsedError = JSON.parse(error.message);
+      } catch (e) {
+        // Fallback if parsing stringified JSON fails
+      }
+    }
+
+    const errorCode = error?.status || error?.code || parsedError?.error?.code;
+    const errorStatusStr = parsedError?.error?.status || "";
+    const errorMessage = error?.message || parsedError?.error?.message || "";
+
+    const isTransientError =
+      errorCode === 503 ||
+      errorCode === 429 ||
+      errorStatusStr === "UNAVAILABLE" ||
+      errorMessage.includes("high demand") ||
+      errorMessage.includes("503");
+
+    if (isTransientError && retries > 0) {
+      console.warn(`Gemini API busy (503/429). Retrying in ${delay}ms... (${retries} attempts left)`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return callGeminiWithRetry(apiCall, retries - 1, delay * 2);
+    }
+
+    throw error;
+  }
+}
+
 
 function extractArticleTitle(articleText) {
   if (!articleText || typeof articleText !== "string") return "";
@@ -343,7 +381,7 @@ REQUIRED JSON FORMAT:
 `;
     }
     const response = await ai.models.generateContent({
-  model: "gemini-3.5-flash-lite",
+  model: "gemini-2.5-flash",
   contents: prompt,
   config: {
     responseMimeType: "application/json",
@@ -407,6 +445,20 @@ REQUIRED JSON FORMAT:
     });
   } catch (error) {
     console.error("Backend Server Error:", error?.response?.data || error.message);
+    
+    // Return explicit 503 status if Gemini high demand error persists after retries
+    const isBusy =
+      error?.status === 503 ||
+      error?.code === 503 ||
+      error?.message?.includes("503") ||
+      error?.message?.includes("high demand");
+
+    if (isBusy) {
+      return res.status(503).json({
+        success: false,
+        message: "The AI service is currently busy. Please wait a few seconds and try again.",
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "Verification failed",

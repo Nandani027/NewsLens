@@ -81,6 +81,12 @@
   transform: scale(0.98);
 }
 
+.search-error-banner {
+  color: #e63946;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
   .verify-search-box {
     padding: 12px;
