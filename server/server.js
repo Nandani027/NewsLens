@@ -15,68 +15,105 @@ const ai = new GoogleGenAI({
 });
 
 /**
- * Helper function to handle transient Gemini 503/429 errors with dynamic backoff.
+ * Priority list of models to rotate through in case of rate limits or model unavailability.
  */
-async function callGeminiWithRetry(apiCall, retries = 3, initialDelay = 2000) {
-  let currentDelay = initialDelay;
+const MODEL_FALLBACK_LIST = [
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+];
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await apiCall();
-    } catch (error) {
-      let parsedError = error;
+/**
+ * Helper function to handle transient Gemini 503/429 errors with dynamic backoff and multi-model fallback.
+ */
+async function callGeminiWithFallbackAndRetry(
+  prompt,
+  schemaConfig,
+  retriesPerModel = 2,
+  initialDelay = 1500
+) {
+  let lastError = null;
 
-      // Extract nested stringified JSON errors if present
-      if (typeof error?.message === "string" && error.message.includes("{")) {
-        try {
-          parsedError = JSON.parse(error.message);
-        } catch (e) {
-          // Fallback if parsing fails
+  // 1. Iterate through candidate models
+  for (const modelName of MODEL_FALLBACK_LIST) {
+    let currentDelay = initialDelay;
+
+    // 2. Retry loop for transient issues per model
+    for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
+      try {
+        console.log(
+          `[Gemini Execution] Attempting generation with model: ${modelName}`
+        );
+
+        return await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: schemaConfig,
+        });
+      } catch (error) {
+        lastError = error;
+        let parsedError = error;
+
+        // Extract nested stringified JSON errors if present
+        if (typeof error?.message === "string" && error.message.includes("{")) {
+          try {
+            parsedError = JSON.parse(error.message);
+          } catch (e) {
+            // Fallback if parsing fails
+          }
         }
+
+        const errorCode =
+          error?.status || error?.code || parsedError?.error?.code;
+        const errorStatusStr = parsedError?.error?.status || "";
+        const errorMessage =
+          error?.message || parsedError?.error?.message || "";
+
+        const isQuotaExhausted =
+          errorCode === 429 ||
+          errorStatusStr === "RESOURCE_EXHAUSTED" ||
+          errorMessage.includes("Quota exceeded") ||
+          errorMessage.includes("limit: 0");
+
+        const isTransientError =
+          errorCode === 503 ||
+          errorStatusStr === "UNAVAILABLE" ||
+          errorMessage.includes("high demand") ||
+          errorMessage.includes("503");
+
+        // Case A: Hard rate limit / quota exhausted -> Break retries for THIS model and jump to next fallback model
+        if (isQuotaExhausted) {
+          console.warn(
+            `Model '${modelName}' quota exhausted (${errorMessage}). Attempting fallback to next model...`
+          );
+          break;
+        }
+
+        // Case B: Transient server issue -> Retry same model with exponential backoff
+        if (isTransientError && attempt < retriesPerModel) {
+          console.warn(
+            `Model '${modelName}' busy (${errorCode || "503"}). Retrying in ${currentDelay}ms... (${retriesPerModel - attempt} retries left)`
+          );
+          await new Promise((resolve) => setTimeout(resolve, currentDelay));
+          currentDelay *= 2;
+          continue;
+        }
+
+        // Case C: Non-retriable structural/prompt error -> Throw immediately without burning all models
+        console.error(`Unhandled API Error on model '${modelName}':`, errorMessage);
+        throw error;
       }
-
-      const errorCode = error?.status || error?.code || parsedError?.error?.code;
-      const errorStatusStr = parsedError?.error?.status || "";
-      const errorMessage = error?.message || parsedError?.error?.message || "";
-
-      // Check for hard quota limit vs transient capacity limit
-      const isQuotaExhausted =
-        errorCode === 429 ||
-        errorStatusStr === "RESOURCE_EXHAUSTED" ||
-        errorMessage.includes("Quota exceeded") ||
-        errorMessage.includes("limit: 0");
-
-      const isTransientError =
-        errorCode === 503 ||
-        errorStatusStr === "UNAVAILABLE" ||
-        errorMessage.includes("high demand") ||
-        errorMessage.includes("503");
-
-      // 1. If daily/per-minute quota is completely exhausted, fail immediately with a user-friendly error
-      if (isQuotaExhausted) {
-        console.error("Gemini API Quota Exhausted:", errorMessage);
-        const customErr = new Error(
-          "API rate limit exceeded. Please wait around 30 seconds before trying again."
-        );
-        customErr.status = 429;
-        throw customErr;
-      }
-
-      // 2. If it's a transient server error (503/UNAVAILABLE) and retries remain, wait and retry
-      if (isTransientError && attempt < retries) {
-        console.warn(
-          `Gemini API busy (${errorCode || "503"}). Retrying in ${currentDelay}ms... (${retries - attempt} attempts left)`
-        );
-        await new Promise((resolve) => setTimeout(resolve, currentDelay));
-        currentDelay *= 2; // Double the delay for exponential backoff
-        continue;
-      }
-
-      // If non-retriable or retries exhausted, throw the original error
-      throw error;
     }
   }
+
+  // If every single model in the fallback array failed due to 429/503
+  const customErr = new Error(
+    "All available AI models are currently busy or rate limited. Please try again in 30 seconds."
+  );
+  customErr.status = 429;
+  throw customErr;
 }
+
 function extractArticleTitle(articleText) {
   if (!articleText || typeof articleText !== "string") return "";
 
@@ -87,7 +124,9 @@ function extractArticleTitle(articleText) {
 
   if (lines.length === 0) return "";
 
-  const titleLine = lines.find((line) => line.toLowerCase().startsWith("title:"));
+  const titleLine = lines.find((line) =>
+    line.toLowerCase().startsWith("title:")
+  );
   if (titleLine) {
     return titleLine.replace(/^title:/i, "").trim();
   }
@@ -398,55 +437,52 @@ REQUIRED JSON FORMAT:
 `;
     }
 
-    // Wrapped in callGeminiWithRetry to handle retries cleanly
-    const response = await callGeminiWithRetry(async () => {
-      return await ai.models.generateContent({
-        model: "gemini-2.0-flash-lite", // Updated active model
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
+    // Shared schema configuration for dynamic model invocation
+    const schemaConfig = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          verificationResult: {
             type: "OBJECT",
             properties: {
-              verificationResult: {
-                type: "OBJECT",
-                properties: {
-                  verdict: {
-                    type: "STRING",
-                    enum: [
-                      "Likely Authentic",
-                      "Misleading",
-                      "Likely Fake",
-                      "Insufficient Evidence",
-                    ],
-                  },
-                  confidence: { type: "INTEGER" },
-                },
-                required: ["verdict", "confidence"],
+              verdict: {
+                type: "STRING",
+                enum: [
+                  "Likely Authentic",
+                  "Misleading",
+                  "Likely Fake",
+                  "Insufficient Evidence",
+                ],
               },
-              verificationSummary: {
-                type: "ARRAY",
-                items: { type: "STRING" },
-              },
-              supportingTrustedSources: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    name: { type: "STRING" },
-                  },
-                },
+              confidence: { type: "INTEGER" },
+            },
+            required: ["verdict", "confidence"],
+          },
+          verificationSummary: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+          },
+          supportingTrustedSources: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING" },
               },
             },
-            required: [
-              "verificationResult",
-              "verificationSummary",
-              "supportingTrustedSources",
-            ],
           },
         },
-      });
-    });
+        required: [
+          "verificationResult",
+          "verificationSummary",
+          "supportingTrustedSources",
+        ],
+      },
+    };
+
+    // Call Gemini using dynamic model fallback and retry logic
+    const response = await callGeminiWithFallbackAndRetry(prompt, schemaConfig);
 
     const aiText = response.text
       .replace(/```json/g, "")
@@ -474,25 +510,15 @@ REQUIRED JSON FORMAT:
       analysis,
     });
   } catch (error) {
-    console.error("Backend Server Error:", error?.response?.data || error.message);
+    console.error(
+      "Backend Server Error:",
+      error?.response?.data || error.message
+    );
 
-    const isBusy =
-      error?.status === 503 ||
-      error?.code === 503 ||
-      error?.message?.includes("503") ||
-      error?.message?.includes("high demand");
-
-    if (isBusy) {
-      return res.status(503).json({
-        success: false,
-        message: "The AI service is currently busy. Please wait a few seconds and try again.",
-      });
-    }
-
-    return res.status(500).json({
+    const statusCode = error?.status || 500;
+    return res.status(statusCode).json({
       success: false,
-      message: "Verification failed",
-      error: error.message,
+      message: error.message || "Verification failed",
     });
   }
 });
