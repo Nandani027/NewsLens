@@ -232,7 +232,6 @@ NewsLens is deployed using separate platforms for the frontend and backend.
 - **Frontend:** https://news-lens-tls.vercel.app
 - **Backend API:** https://newslens-production-4e6e.up.railway.app/
 
-- 
 ---
 ##  License
 
