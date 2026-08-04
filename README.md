@@ -47,6 +47,7 @@ Deployment & Tools
 ├── Git
 └── GitHub
 ```
+---
 
 ## System Workflow
 ```text
@@ -178,8 +179,6 @@ cd ../server
 npm install
 ```
 
----
-
 ## Environment Variables
 
 Create a `.env` file inside the **server** folder.
@@ -190,16 +189,14 @@ GEMINI_API_KEY=your_gemini_api_key
 
 ```
 
----
-
-### Start the backend
+### 5. Start the backend
 
 ```bash
 cd server
 node server.js
 ```
 
-### Start the frontend
+### 6.  Start the frontend
 
 Open a new terminal in the project root and run:
 
@@ -208,33 +205,35 @@ cd client
 npm run dev
 ```
 
-The frontend will usually run on:
-
-```text
-http://localhost:5173
-```
-
-The backend will usually run on:
-
-```text
-http://localhost:5000
-```
-
-### 6. Open the Application
+### 7. Open the Application
 
 - **Frontend:** `http://localhost:5173`
 - **Backend:** `http://localhost:5000`
 ---
 
-## Application Screens
+## API Endpoints
 
-* Home Page
-* Latest News Page
-* Verify News Page
-*#add ss
+- **POST** `/verify` – Verifies a news headline or article URL.
+- **GET** `/latest-news` – Retrieves the latest news by category.
 
+  ---
+
+  ## Deployment
+
+NewsLens is deployed using separate platforms for the frontend and backend.
+
+| Component | Platform |
+|-----------|----------|
+| Frontend | Vercel |
+| Backend | Railway |
+
+### Live Application
+
+- **Frontend:** https://news-lens-tls.vercel.app
+- **Backend API:** https://newslens-production-4e6e.up.railway.app/
+
+- 
 ---
-
 ##  License
 
 This project is intended for educational and academic purposes.
