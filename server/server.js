@@ -401,7 +401,7 @@ REQUIRED JSON FORMAT:
     // Wrapped in callGeminiWithRetry to handle retries cleanly
     const response = await callGeminiWithRetry(async () => {
       return await ai.models.generateContent({
-        model: "gemini-2.0-flash-lite", // Updated active model
+        model: "gemini-1.5-flash-8b", // Updated active model
         contents: prompt,
         config: {
           responseMimeType: "application/json",
