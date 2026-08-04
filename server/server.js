@@ -15,43 +15,68 @@ const ai = new GoogleGenAI({
 });
 
 /**
- * Helper function to handle transient Gemini 503/429/Unavailable errors with exponential backoff retry logic.
+ * Helper function to handle transient Gemini 503/429 errors with dynamic backoff.
  */
-async function callGeminiWithRetry(apiCall, retries = 3, delay = 1000) {
-  try {
-    return await apiCall();
-  } catch (error) {
-    let parsedError = error;
+async function callGeminiWithRetry(apiCall, retries = 3, initialDelay = 2000) {
+  let currentDelay = initialDelay;
 
-    if (typeof error?.message === "string" && error.message.includes("{")) {
-      try {
-        parsedError = JSON.parse(error.message);
-      } catch (e) {
-        // Fallback if parsing stringified JSON fails
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await apiCall();
+    } catch (error) {
+      let parsedError = error;
+
+      // Extract nested stringified JSON errors if present
+      if (typeof error?.message === "string" && error.message.includes("{")) {
+        try {
+          parsedError = JSON.parse(error.message);
+        } catch (e) {
+          // Fallback if parsing fails
+        }
       }
+
+      const errorCode = error?.status || error?.code || parsedError?.error?.code;
+      const errorStatusStr = parsedError?.error?.status || "";
+      const errorMessage = error?.message || parsedError?.error?.message || "";
+
+      // Check for hard quota limit vs transient capacity limit
+      const isQuotaExhausted =
+        errorCode === 429 ||
+        errorStatusStr === "RESOURCE_EXHAUSTED" ||
+        errorMessage.includes("Quota exceeded") ||
+        errorMessage.includes("limit: 0");
+
+      const isTransientError =
+        errorCode === 503 ||
+        errorStatusStr === "UNAVAILABLE" ||
+        errorMessage.includes("high demand") ||
+        errorMessage.includes("503");
+
+      // 1. If daily/per-minute quota is completely exhausted, fail immediately with a user-friendly error
+      if (isQuotaExhausted) {
+        console.error("Gemini API Quota Exhausted:", errorMessage);
+        const customErr = new Error(
+          "API rate limit exceeded. Please wait around 30 seconds before trying again."
+        );
+        customErr.status = 429;
+        throw customErr;
+      }
+
+      // 2. If it's a transient server error (503/UNAVAILABLE) and retries remain, wait and retry
+      if (isTransientError && attempt < retries) {
+        console.warn(
+          `Gemini API busy (${errorCode || "503"}). Retrying in ${currentDelay}ms... (${retries - attempt} attempts left)`
+        );
+        await new Promise((resolve) => setTimeout(resolve, currentDelay));
+        currentDelay *= 2; // Double the delay for exponential backoff
+        continue;
+      }
+
+      // If non-retriable or retries exhausted, throw the original error
+      throw error;
     }
-
-    const errorCode = error?.status || error?.code || parsedError?.error?.code;
-    const errorStatusStr = parsedError?.error?.status || "";
-    const errorMessage = error?.message || parsedError?.error?.message || "";
-
-    const isTransientError =
-      errorCode === 503 ||
-      errorCode === 429 ||
-      errorStatusStr === "UNAVAILABLE" ||
-      errorMessage.includes("high demand") ||
-      errorMessage.includes("503");
-
-    if (isTransientError && retries > 0) {
-      console.warn(`Gemini API busy (${errorCode || "503"}). Retrying in ${delay}ms... (${retries} attempts left)`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return callGeminiWithRetry(apiCall, retries - 1, delay * 2);
-    }
-
-    throw error;
   }
 }
-
 function extractArticleTitle(articleText) {
   if (!articleText || typeof articleText !== "string") return "";
 
@@ -376,7 +401,7 @@ REQUIRED JSON FORMAT:
     // Wrapped in callGeminiWithRetry to handle retries cleanly
     const response = await callGeminiWithRetry(async () => {
       return await ai.models.generateContent({
-        model: "gemini-2.0-flash", // Updated active model
+        model: "gemini-2.0-flash-lite", // Updated active model
         contents: prompt,
         config: {
           responseMimeType: "application/json",
