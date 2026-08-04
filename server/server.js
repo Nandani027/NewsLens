@@ -18,9 +18,10 @@ const ai = new GoogleGenAI({
  * Priority list of models to rotate through in case of rate limits or model unavailability.
  */
 const MODEL_FALLBACK_LIST = [
-  "gemini-2.0-flash-lite",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash",
+  "gemini-3.6-flash",       
+  "gemini-3.5-flash",       
+  "gemini-3.5-flash-lite",  
+  "gemini-3.1-flash-lite"   
 ];
 
 /**
