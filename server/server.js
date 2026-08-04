@@ -381,7 +381,7 @@ REQUIRED JSON FORMAT:
 `;
     }
     const response = await ai.models.generateContent({
-  model: "gemini-2.5-flash",
+  model: "gemini-1.5-flash",
   contents: prompt,
   config: {
     responseMimeType: "application/json",
@@ -445,7 +445,7 @@ REQUIRED JSON FORMAT:
     });
   } catch (error) {
     console.error("Backend Server Error:", error?.response?.data || error.message);
-    
+
     // Return explicit 503 status if Gemini high demand error persists after retries
     const isBusy =
       error?.status === 503 ||
