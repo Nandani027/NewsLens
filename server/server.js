@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({
 });
 
 /**
- * Helper function to handle transient Gemini 503/429 errors with exponential backoff retry logic.
+ * Helper function to handle transient Gemini 503/429/Unavailable errors with exponential backoff retry logic.
  */
 async function callGeminiWithRetry(apiCall, retries = 3, delay = 1000) {
   try {
@@ -43,7 +43,7 @@ async function callGeminiWithRetry(apiCall, retries = 3, delay = 1000) {
       errorMessage.includes("503");
 
     if (isTransientError && retries > 0) {
-      console.warn(`Gemini API busy (503/429). Retrying in ${delay}ms... (${retries} attempts left)`);
+      console.warn(`Gemini API busy (${errorCode || "503"}). Retrying in ${delay}ms... (${retries} attempts left)`);
       await new Promise((resolve) => setTimeout(resolve, delay));
       return callGeminiWithRetry(apiCall, retries - 1, delay * 2);
     }
@@ -51,7 +51,6 @@ async function callGeminiWithRetry(apiCall, retries = 3, delay = 1000) {
     throw error;
   }
 }
-
 
 function extractArticleTitle(articleText) {
   if (!articleText || typeof articleText !== "string") return "";
@@ -63,9 +62,7 @@ function extractArticleTitle(articleText) {
 
   if (lines.length === 0) return "";
 
-  const titleLine = lines.find((line) =>
-    line.toLowerCase().startsWith("title:")
-  );
+  const titleLine = lines.find((line) => line.toLowerCase().startsWith("title:"));
   if (titleLine) {
     return titleLine.replace(/^title:/i, "").trim();
   }
@@ -77,7 +74,6 @@ function extractArticleTitle(articleText) {
 
   return lines[0];
 }
-
 
 function generateOptimizedQuery(text) {
   if (!text) return "";
@@ -107,7 +103,6 @@ function generateOptimizedQuery(text) {
   return keyWords.slice(0, 5).join(" ");
 }
 
-
 // Latest News Route
 app.get("/latest-news", async (req, res) => {
   try {
@@ -125,10 +120,10 @@ app.get("/latest-news", async (req, res) => {
 
     res.json({
       success: true,
-      articles: response.data.articles.slice(0,32),
+      articles: response.data.articles.slice(0, 32),
     });
   } catch (error) {
-    console.error(error);
+    console.error("NewsAPI Error:", error?.response?.data || error.message);
     res.status(500).json({
       success: false,
       message: "Unable to fetch latest news",
@@ -166,8 +161,8 @@ app.post("/verify", async (req, res) => {
 
     if (isURL) {
       responseType = "url";
-      
-      //  Extract article using Jina
+
+      // Extract article using Jina
       const jinaUrl = `https://r.jina.ai/${input}`;
       const jinaResponse = await axios.get(jinaUrl);
       articleContent = jinaResponse.data;
@@ -185,11 +180,11 @@ app.post("/verify", async (req, res) => {
         });
       }
 
-      // generate optimized search query
+      // Generate optimized search query
       const searchQuery = generateOptimizedQuery(articleTitle);
       console.log("Search Query (URL):", searchQuery);
 
-      // search similar articles using NewsAPI
+      // Search similar articles using NewsAPI
       const matchResponse = await axios.get("https://newsapi.org/v2/everything", {
         params: {
           q: searchQuery,
@@ -240,7 +235,7 @@ INSTRUCTIONS & VERDICT RULES:
 
 1. Verdict Categories & Confidence Guidelines:
    - "Likely Authentic": MUST assign confidence between 80 and 100 (Multiple trusted matching articles directly confirm the core event and claim).
-   - "Misleading": MUST assign confidence between 40 and 70 ONLY(Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
+   - "Misleading": MUST assign confidence between 40 and 70 ONLY (Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
    - "Likely Fake": MUST assign confidence between 70 and 100. (High confidence that the claim in the headline is false or explicitly refuted by reliable reporting).
    - "Insufficient Evidence": MUST assign confidence between 10 and 40. (Few or no matching articles are provided to verify the claim).
    CRITICAL RULE: Your numerical confidence score MUST strictly lie within the exact range assigned to the chosen verdict category. Do NOT assign a score outside the category's range!
@@ -282,10 +277,8 @@ REQUIRED JSON FORMAT:
 }
 `;
     } else {
-    
       responseType = "headline";
 
-      // optimized query generator headline search
       const searchQuery = generateOptimizedQuery(input);
       console.log("Search Query (Headline):", searchQuery);
 
@@ -305,7 +298,6 @@ REQUIRED JSON FORMAT:
         url: art.url,
         publishedAt: art.publishedAt,
       }));
-
 
       prompt = `
 You are an AI fact-checking assistant for NewsLens.
@@ -339,7 +331,7 @@ INSTRUCTIONS & VERDICT RULES:
 
 1. Verdict Categories & Confidence Guidelines:
    - "Likely Authentic": MUST assign confidence between 80 and 100 (Multiple trusted matching articles directly confirm the core event and claim).
-   - "Misleading": MUST assign confidence between 40 and 70 ONLY(Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
+   - "Misleading": MUST assign confidence between 40 and 70 ONLY (Headline exaggerates facts, takes statements out of context, or uses clickbait tactics not fully supported by the articles).
    - "Likely Fake": MUST assign confidence between 70 and 100. (High confidence that the claim in the headline is false or explicitly refuted by reliable reporting).
    - "Insufficient Evidence": MUST assign confidence between 10 and 40. (Few or no matching articles are provided to verify the claim).
    CRITICAL RULE: Your numerical confidence score MUST strictly lie within the exact range assigned to the chosen verdict category. Do NOT assign a score outside the category's range!
@@ -380,43 +372,56 @@ REQUIRED JSON FORMAT:
 }
 `;
     }
-    const response = await ai.models.generateContent({
-  model: "gemini-1.5-flash",
-  contents: prompt,
-  config: {
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: "OBJECT",
-      properties: {
-        verificationResult: {
-          type: "OBJECT",
-          properties: {
-            verdict: {
-              type: "STRING",
-              enum: ["Likely Authentic", "Misleading", "Likely Fake", "Insufficient Evidence"]
-            },
-            confidence: { type: "INTEGER" }
-          },
-          required: ["verdict", "confidence"]
-        },
-        verificationSummary: {
-          type: "ARRAY",
-          items: { type: "STRING" }
-        },
-        supportingTrustedSources: {
-          type: "ARRAY",
-          items: {
+
+    // Wrapped in callGeminiWithRetry to handle retries cleanly
+    const response = await callGeminiWithRetry(async () => {
+      return await ai.models.generateContent({
+        model: "gemini-2.0-flash", // Updated active model
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
             type: "OBJECT",
             properties: {
-              name: { type: "STRING" }
-            }
-          }
-        }
-      },
-      required: ["verificationResult", "verificationSummary", "supportingTrustedSources"]
-    }
-  }
-});
+              verificationResult: {
+                type: "OBJECT",
+                properties: {
+                  verdict: {
+                    type: "STRING",
+                    enum: [
+                      "Likely Authentic",
+                      "Misleading",
+                      "Likely Fake",
+                      "Insufficient Evidence",
+                    ],
+                  },
+                  confidence: { type: "INTEGER" },
+                },
+                required: ["verdict", "confidence"],
+              },
+              verificationSummary: {
+                type: "ARRAY",
+                items: { type: "STRING" },
+              },
+              supportingTrustedSources: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    name: { type: "STRING" },
+                  },
+                },
+              },
+            },
+            required: [
+              "verificationResult",
+              "verificationSummary",
+              "supportingTrustedSources",
+            ],
+          },
+        },
+      });
+    });
 
     const aiText = response.text
       .replace(/```json/g, "")
@@ -446,7 +451,6 @@ REQUIRED JSON FORMAT:
   } catch (error) {
     console.error("Backend Server Error:", error?.response?.data || error.message);
 
-    // Return explicit 503 status if Gemini high demand error persists after retries
     const isBusy =
       error?.status === 503 ||
       error?.code === 503 ||
@@ -459,6 +463,7 @@ REQUIRED JSON FORMAT:
         message: "The AI service is currently busy. Please wait a few seconds and try again.",
       });
     }
+
     return res.status(500).json({
       success: false,
       message: "Verification failed",
