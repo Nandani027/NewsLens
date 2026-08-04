@@ -437,7 +437,6 @@ REQUIRED JSON FORMAT:
 `;
     }
 
-<<<<<<< HEAD
     // Shared schema configuration for dynamic model invocation
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -445,16 +444,6 @@ REQUIRED JSON FORMAT:
         type: "OBJECT",
         properties: {
           verificationResult: {
-=======
-    // Wrapped in callGeminiWithRetry to handle retries cleanly
-    const response = await callGeminiWithRetry(async () => {
-      return await ai.models.generateContent({
-        model: "gemini-1.5-flash-8b", // Updated active model
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
->>>>>>> 24f30fa376790814ffce661ca7351c35ad1cbfe4
             type: "OBJECT",
             properties: {
               verdict: {
